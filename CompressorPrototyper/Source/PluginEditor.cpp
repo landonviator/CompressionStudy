@@ -13,9 +13,6 @@
 CompressorPrototyperAudioProcessorEditor::CompressorPrototyperAudioProcessorEditor (CompressorPrototyperAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    int leftMargin = 32;
-    int topMargin = 64;
-    
     shadowProperties.radius = 15;
     shadowProperties.offset = juce::Point<int> (-2, 6);
     dialShadow.setShadowProperties (shadowProperties);
@@ -45,12 +42,6 @@ CompressorPrototyperAudioProcessorEditor::CompressorPrototyperAudioProcessorEdit
         sliders[i]->setColour(0x1001500, juce::Colour::fromFloatRGBA(0, 0, 0, 0.25f));
         sliders[i]->setLookAndFeel(&customDial);
         sliders[i]->setComponentEffect(&dialShadow);
-        
-//        if (sliders[i] == &inputSlider) {
-//            sliders[i]->setBounds(leftMargin, topMargin * 1.25, 172, 172);
-//        } else {
-//            sliders[i]->setBounds(sliders[i - 1]->getX() + sliders[i - 1]->getWidth(), topMargin * 1.25f, 172, 172);
-//        }
     }
     
     inputSlider.setRange(-36, 36, 0.5f);
