@@ -19,13 +19,37 @@ CompressorPrototyperAudioProcessor::CompressorPrototyperAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+treeState (*this, nullptr, "PARAMETER", createParameterLayout())
 #endif
 {
 }
 
 CompressorPrototyperAudioProcessor::~CompressorPrototyperAudioProcessor()
 {
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout CompressorPrototyperAudioProcessor::createParameterLayout()
+{
+    std::vector <std::unique_ptr<juce::RangedAudioParameter>> params;
+    params.reserve(6);
+    
+    
+    auto inputGainParam = std::make_unique<juce::AudioParameterFloat>(inputGainSliderId, inputGainSliderName, -36.0f, 36.0f, 0.0f);
+    auto ratioParam = std::make_unique<juce::AudioParameterInt>(ratioSliderId, ratioSliderName, 1.0f, 10.0f, 1.0f);
+    auto threshParam = std::make_unique<juce::AudioParameterFloat>(threshSliderId, threshSliderName, -30.0f, 0.0f, 0.0f);
+    auto attackParam = std::make_unique<juce::AudioParameterInt>(attackSliderId, attackSliderName, 1.0f, 1000.0f, 500.0f);
+    auto releaseParam = std::make_unique<juce::AudioParameterFloat>(releaseSliderId, releaseSliderName, 10.0f, 430.0f, 100.0f);
+    auto outputGainParam = std::make_unique<juce::AudioParameterFloat>(outputGainSliderId, outputGainSliderName, -36.0f, 36.0f, 0.0f);
+    
+    params.push_back(std::move(inputGainParam));
+    params.push_back(std::move(ratioParam));
+    params.push_back(std::move(threshParam));
+    params.push_back(std::move(attackParam));
+    params.push_back(std::move(releaseParam));
+    params.push_back(std::move(outputGainParam));
+    
+    return { params.begin(), params.end() };
 }
 
 //==============================================================================
@@ -93,8 +117,14 @@ void CompressorPrototyperAudioProcessor::changeProgramName (int index, const juc
 //==============================================================================
 void CompressorPrototyperAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    juce::dsp::ProcessSpec spec;
+    spec.maximumBlockSize = samplesPerBlock;
+    spec.sampleRate = sampleRate;
+    spec.numChannels = getTotalNumOutputChannels();
+    
+    inputGainProcessor.prepare(spec);
+    compressorProcessor.prepare(spec);
+    outputGainProcessor.prepare(spec);
 }
 
 void CompressorPrototyperAudioProcessor::releaseResources()
@@ -135,27 +165,29 @@ void CompressorPrototyperAudioProcessor::processBlock (juce::AudioBuffer<float>&
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+    
+    juce::dsp::AudioBlock<float> audioBlock {buffer};
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
+    auto* rawInput = treeState.getRawParameterValue(inputGainSliderId);
+    auto* rawRatio = treeState.getRawParameterValue(ratioSliderId);
+    auto* rawThresh = treeState.getRawParameterValue(threshSliderId);
+    auto* rawAttack = treeState.getRawParameterValue(attackSliderId);
+    auto* rawRelease = treeState.getRawParameterValue(releaseSliderId);
+    auto* rawTrim = treeState.getRawParameterValue(outputGainSliderId);
+    
+    inputGainProcessor.setGainDecibels(*rawInput);
+    inputGainProcessor.process(juce::dsp::ProcessContextReplacing<float> (audioBlock));
 
-        // ..do something to the data...
-    }
+    compressorProcessor.setRatio(*rawRatio);
+    compressorProcessor.setThreshold(*rawThresh - 30);
+    compressorProcessor.setAttack(*rawAttack);
+    compressorProcessor.setRelease(*rawRelease);
+    compressorProcessor.process(juce::dsp::ProcessContextReplacing<float> (audioBlock));
+
+    outputGainProcessor.setGainDecibels(*rawTrim);
+    outputGainProcessor.process(juce::dsp::ProcessContextReplacing<float> (audioBlock));
 }
 
 //==============================================================================
@@ -172,15 +204,16 @@ juce::AudioProcessorEditor* CompressorPrototyperAudioProcessor::createEditor()
 //==============================================================================
 void CompressorPrototyperAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    juce::MemoryOutputStream stream(destData, false);
+        treeState.state.writeToStream (stream);
 }
 
 void CompressorPrototyperAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    juce::ValueTree tree = juce::ValueTree::readFromData (data, size_t (sizeInBytes));
+        if (tree.isValid()) {
+            treeState.state = tree;
+        }
 }
 
 //==============================================================================

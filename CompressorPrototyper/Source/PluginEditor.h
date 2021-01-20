@@ -55,6 +55,7 @@ private:
     
     juce::Slider inputSlider, ratioSlider, threshSlider, attackSlider, releaseSlider, trimSlider;
     std::vector<juce::Slider*> sliders;
+    std::unique_ptr <juce::AudioProcessorValueTreeState::SliderAttachment> inputGainSliderAttach, ratioSliderAttach, thresholdSliderAttach, attackSliderAttach, releaseSliderAttach, trimGainSliderAttach;
     
     juce::GroupComponent windowBorder;
     
