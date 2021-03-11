@@ -75,7 +75,7 @@ CompressorPrototyperAudioProcessorEditor::CompressorPrototyperAudioProcessorEdit
     AudioProcessorEditor::setResizable(true, true);
     AudioProcessorEditor::setResizeLimits(711, 237, 1374, 458);
     AudioProcessorEditor::getConstrainer()->setFixedAspectRatio(3.0);
-    setSize (1101, 367);
+    setSize (711, 237);
 }
 
 CompressorPrototyperAudioProcessorEditor::~CompressorPrototyperAudioProcessorEditor()
